@@ -83,7 +83,7 @@ const char* WIFI_PASS = "abcdefgh";
 
 int a = 30;
 int b = 30;
-float u = 0.001;
+float u = 0.01;
 SimpleKalmanFilter kAx(a,b,u);
 SimpleKalmanFilter kAy(a,b,u);
 SimpleKalmanFilter kAz(a,b,u);
@@ -166,12 +166,16 @@ void loop() {
       Gx = (double)GyroX/GyroScaleFactor   + calGx;
       Gy = (double)GyroY/GyroScaleFactor   + calGy;
       Gz = (double)GyroZ/GyroScaleFactor   + calGz;
-      kalAx = Ax;
-      kalAy = Ay;
-      kalAz = Az;
-      kalGx = kGx.updateEstimate(Gx);
-      kalGy = kGy.updateEstimate(Gy);
-      kalGz = kGz.updateEstimate(Gz);
+      kalAx = kAx.updateEstimate(Ax*1000);
+      kalAy = kAy.updateEstimate(Ay*1000);
+      kalAz = kAz.updateEstimate(Az*1000);
+
+      kalGx = Gx;
+      kalGy = Gy;
+      kalGz = Gz;
+//      kalGx = kGx.updateEstimate(Gx);
+//      kalGy = kGy.updateEstimate(Gy);
+//      kalGz = kGz.updateEstimate(Gz);
       Serial.print(" "); Serial.print(kalAx);
       Serial.print(" "); Serial.print(kalAy);
       Serial.print(" "); Serial.print(kalAz);
@@ -179,7 +183,7 @@ void loop() {
       Serial.print(" "); Serial.print(kalGy);
       Serial.print(" "); Serial.println(kalGz);
       webSocket.broadcastTXT(String(kalAx) +"\n" + String(kalAy) +"\n" + String(kalAz) +"\n" + String(kalGx) +"\n" + String(kalGy) +"\n" + String(kalGz)+"\n" +String(T)+"\n"  );
-      delay(100);  
+      delay(10);  
       
   webSocket.loop();
   WiFiClient client = server.available();
