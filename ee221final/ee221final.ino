@@ -83,13 +83,14 @@ const char* WIFI_PASS = "abcdefgh";
 
 int a = 30;
 int b = 30;
-float u = 0.01;
+float u = 0.07;
+float u1 = 0.001;
 SimpleKalmanFilter kAx(a,b,u);
 SimpleKalmanFilter kAy(a,b,u);
 SimpleKalmanFilter kAz(a,b,u);
-SimpleKalmanFilter kGx(a,b,u);
-SimpleKalmanFilter kGy(a,b,u);
-SimpleKalmanFilter kGz(a,b,u);
+SimpleKalmanFilter kGx(a,b,u1);
+SimpleKalmanFilter kGy(a,b,u1);
+SimpleKalmanFilter kGz(a,b,u1);
 
 //String output5State = "off";
 //String output4State = "off";
@@ -103,7 +104,7 @@ const uint8_t sda = D2;
 
 // sensitivity scale factor respective to full scale setting provided in datasheet 
 const uint16_t AccelScaleFactor = 16384;
-const uint16_t GyroScaleFactor = 131;
+const uint16_t GyroScaleFactor = 13;
 
 // MPU6050 few configuration register addresses
 const uint8_t MPU6050_REGISTER_SMPLRT_DIV   =  0x19;
@@ -170,12 +171,12 @@ void loop() {
       kalAy = kAy.updateEstimate(Ay*1000);
       kalAz = kAz.updateEstimate(Az*1000);
 
-      kalGx = Gx;
-      kalGy = Gy;
-      kalGz = Gz;
-//      kalGx = kGx.updateEstimate(Gx);
-//      kalGy = kGy.updateEstimate(Gy);
-//      kalGz = kGz.updateEstimate(Gz);
+//      kalGx = Gx;
+//      kalGy = Gy;
+//      kalGz = Gz;
+      kalGx = kGx.updateEstimate(Gx);
+      kalGy = kGy.updateEstimate(Gy);
+      kalGz = kGz.updateEstimate(Gz);
       Serial.print(" "); Serial.print(kalAx);
       Serial.print(" "); Serial.print(kalAy);
       Serial.print(" "); Serial.print(kalAz);

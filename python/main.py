@@ -25,7 +25,7 @@ def on_message(ws, message):
     global prevHeight, prevWidth
     x = message.split('\n')
 
-    toWidth = int(xlen) + int(float(x[0]))
+    toWidth = int(xlen) - int(float(x[5]))
     toHeight = int(ylen) + int(float(x[1]))
     diff = abs(prevWidth - toWidth)
     diff2 = abs(prevHeight - toHeight)
