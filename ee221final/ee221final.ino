@@ -1,3 +1,8 @@
+#include <ButtonDebounce.h>
+#include <Wire.h>
+#include <SimpleKalmanFilter.h>
+#include <ESP8266WiFi.h>
+#include <WebSocketsServer.h>
 
 String header = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n";
 String html_1 = R"=====(
@@ -25,6 +30,9 @@ String html_1 = R"=====(
     <p>Gy = <span id='gy'>---</span> </p>
     <p>Gz = <span id='gz'>---</span> </p>
     <p>T = <span id='temp'>---</span> </p>
+    <p>T = <span id='leftbtn'>---</span> </p>
+    <p>T = <span id='rightbtn'>---</span> </p>
+     <p>T = <span id='trackbtn'>---</span> </p>
     <button id = "calibrate" type="button" onclick="buttonclick();">Calibrate</button>
     <br />
     
@@ -55,10 +63,11 @@ function processReceivedCommand(evt)
     document.getElementById('gy').innerHTML = val[4];
     document.getElementById('gz').innerHTML = val[5];
     document.getElementById('temp').innerHTML = val[6];
+    document.getElementById('leftbtn').innerHTML = val[7];
+    document.getElementById('rightbtn').innerHTML = val[8];
+    document.getElementById('trackbtn').innerHTML = val[9];
 }
  
-
-
  
   window.onload = function(e)
   { 
@@ -69,17 +78,26 @@ function processReceivedCommand(evt)
  
 </html>
 )=====";
- 
-#include <Wire.h>
-#include <SimpleKalmanFilter.h>
-#include <ESP8266WiFi.h>
-#include <WebSocketsServer.h>
+ // MPU6050 few configuration register addresses
+  const uint8_t MPU6050_REGISTER_SMPLRT_DIV   =  0x19;
+  const uint8_t MPU6050_REGISTER_USER_CTRL    =  0x6A;
+  const uint8_t MPU6050_REGISTER_PWR_MGMT_1   =  0x6B;
+  const uint8_t MPU6050_REGISTER_PWR_MGMT_2   =  0x6C;
+  const uint8_t MPU6050_REGISTER_CONFIG       =  0x1A;
+  const uint8_t MPU6050_REGISTER_GYRO_CONFIG  =  0x1B;
+  const uint8_t MPU6050_REGISTER_ACCEL_CONFIG =  0x1C;
+  const uint8_t MPU6050_REGISTER_FIFO_EN      =  0x23;
+  const uint8_t MPU6050_REGISTER_INT_ENABLE   =  0x38;
+  const uint8_t MPU6050_REGISTER_ACCEL_XOUT_H =  0x3B;
+  const uint8_t MPU6050_REGISTER_SIGNAL_PATH_RESET  = 0x68;
+
 
 WiFiServer server(80);
 WebSocketsServer webSocket = WebSocketsServer(81);
 
 const char* WIFI_SSID     = "redmi";
 const char* WIFI_PASS = "abcdefgh";
+
 
 int a = 30;
 int b = 30;
@@ -92,111 +110,110 @@ SimpleKalmanFilter kGx(a,b,u1);
 SimpleKalmanFilter kGy(a,b,u1);
 SimpleKalmanFilter kGz(a,b,u1);
 
-//String output5State = "off";
-//String output4State = "off";
 
-long currenttime = 0;
 const uint8_t MPU6050SlaveAddress = 0x68;
 
-// Select SDA and SCL pins for I2C communication 
-const uint8_t scl = D1;
-const uint8_t sda = D2;
+const uint8_t scl = D4;
+const uint8_t sda = D3;
 
 // sensitivity scale factor respective to full scale setting provided in datasheet 
 const uint16_t AccelScaleFactor = 16384;
 const uint16_t GyroScaleFactor = 13;
 
-// MPU6050 few configuration register addresses
-const uint8_t MPU6050_REGISTER_SMPLRT_DIV   =  0x19;
-const uint8_t MPU6050_REGISTER_USER_CTRL    =  0x6A;
-const uint8_t MPU6050_REGISTER_PWR_MGMT_1   =  0x6B;
-const uint8_t MPU6050_REGISTER_PWR_MGMT_2   =  0x6C;
-const uint8_t MPU6050_REGISTER_CONFIG       =  0x1A;
-const uint8_t MPU6050_REGISTER_GYRO_CONFIG  =  0x1B;
-const uint8_t MPU6050_REGISTER_ACCEL_CONFIG =  0x1C;
-const uint8_t MPU6050_REGISTER_FIFO_EN      =  0x23;
-const uint8_t MPU6050_REGISTER_INT_ENABLE   =  0x38;
-const uint8_t MPU6050_REGISTER_ACCEL_XOUT_H =  0x3B;
-const uint8_t MPU6050_REGISTER_SIGNAL_PATH_RESET  = 0x68;
+
+
 double Ax, Ay, Az, T, Gx, Gy, Gz, calAx,calAy,calAz,calGx,calGy,calGz;
 int16_t AccelX, AccelY, AccelZ, Temperature, GyroX, GyroY, GyroZ;
 
 double kalAx,kalAy,kalAz,kalGz,kalGx,kalGy;
 
-
+int buttonState = HIGH;
+float yaw = 0;
+float timeStep = 0.09;
+int i = 0;
+ButtonDebounce trackBtn(D2, 50); 
+ButtonDebounce leftBtn(D1, 50); 
+ButtonDebounce rightBtn(D6, 50); 
 
 void setup() {
   Serial.begin(9600);
   Wire.begin(sda, scl);
   MPU6050_Init();
   WiFi.mode(WIFI_STA);
-
-   // Connect
-   Serial.println ();
-   Serial.printf("[WIFI] Connecting to %s ", WIFI_SSID);
-   Serial.println();
-   WiFi.begin(WIFI_SSID, WIFI_PASS);
-
-   // Wait
-   while (WiFi.status() != WL_CONNECTED) 
-   {
-      Serial.print(".");
-      delay(100);
-   }
-   Serial.print(" ==> CONNECTED!" );
-   Serial.println();
-
-   // Connected!
-   Serial.printf("[WIFI] STATION Mode, SSID: %s, IP address: %s\n", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
-   Serial.println();
+ 
+   
+  Serial.println ();
+  Serial.printf("[WIFI] Connecting to %s ", WIFI_SSID);
+  Serial.println();
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  while (WiFi.status() != WL_CONNECTED) 
+  {
+    Serial.print(".");
+    delay(100);
+  }
+  Serial.print(" ==> CONNECTED!" );
+  Serial.println();
+  
+  // Connected!
+  Serial.printf("[WIFI] STATION Mode, SSID: %s, IP address: %s\n", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+  Serial.println();
   server.begin();
-   webSocket.begin();
+  webSocket.begin();
   webSocket.onEvent(webSocketEvent);
 }
 
+
 void loop() {
    
-   
-    
+  //check for button activity
+  trackBtn.update();
+  leftBtn.update();
+  rightBtn.update();
+  
+  //read from sensor
   Read_RawValue(MPU6050SlaveAddress, MPU6050_REGISTER_ACCEL_XOUT_H);
-      //divide each with their sensitivity scale factor
-      Ax = (double)AccelX/AccelScaleFactor + calAx;
-      Ay = (double)AccelY/AccelScaleFactor + calAy;
-      Az = (double)AccelZ/AccelScaleFactor + calAz;
-      T = (double)Temperature/340+36.53; //temperature formula
-      Gx = (double)GyroX/GyroScaleFactor   + calGx;
-      Gy = (double)GyroY/GyroScaleFactor   + calGy;
-      Gz = (double)GyroZ/GyroScaleFactor   + calGz;
-      kalAx = kAx.updateEstimate(Ax*1000);
-      kalAy = kAy.updateEstimate(Ay*1000);
-      kalAz = kAz.updateEstimate(Az*1000);
+  //divide each with their sensitivity scale factor
+  Ax = (double)AccelX/AccelScaleFactor + calAx;
+  Ay = (double)AccelY/AccelScaleFactor + calAy;
+  Az = (double)AccelZ/AccelScaleFactor + calAz;
+  T =  (double)Temperature/340+36.53; 
+  Gx = (double)GyroX/GyroScaleFactor   + calGx;
+  Gy = (double)GyroY/GyroScaleFactor   + calGy;
+  Gz = (double)GyroZ/GyroScaleFactor   + calGz;
+  
+  kalAx = kAx.updateEstimate(Ax*1000);
+  kalAy = kAy.updateEstimate(Ay*1000);
+  kalAz = kAz.updateEstimate(Az*768);
 
-//      kalGx = Gx;
-//      kalGy = Gy;
-//      kalGz = Gz;
-      kalGx = kGx.updateEstimate(Gx);
-      kalGy = kGy.updateEstimate(Gy);
-      kalGz = kGz.updateEstimate(Gz);
-      Serial.print(" "); Serial.print(kalAx);
-      Serial.print(" "); Serial.print(kalAy);
-      Serial.print(" "); Serial.print(kalAz);
-      Serial.print(" "); Serial.print(kalGx);
-      Serial.print(" "); Serial.print(kalGy);
-      Serial.print(" "); Serial.println(kalGz);
-      webSocket.broadcastTXT(String(kalAx) +"\n" + String(kalAy) +"\n" + String(kalAz) +"\n" + String(kalGx) +"\n" + String(kalGy) +"\n" + String(kalGz)+"\n" +String(T)+"\n"  );
-      delay(10);  
-      
+  kalGx = kGx.updateEstimate(Gx);
+  kalGy = kGy.updateEstimate(Gy);
+  kalGz = kGz.updateEstimate(Gz);
+  
+  yaw = yaw + Gz * timeStep;
+  Serial.print(" "); Serial.print(kalAx);
+  Serial.print(" "); Serial.print(kalAy);
+  Serial.print(" "); Serial.print(kalAz);
+  Serial.print(" "); Serial.print(kalGx);
+  Serial.print(" "); Serial.print(kalGy);
+  Serial.print(" "); Serial.print(yaw);
+  Serial.print(" "); Serial.print(trackBtn.state());
+  Serial.print(" "); Serial.print(leftBtn.state());
+  Serial.print(" "); Serial.println(rightBtn.state());
+  
+  webSocket.broadcastTXT(String(kalAx) +"\n" + String(kalAy) +"\n" + String(kalAz) +"\n" + String(kalGx) +"\n" + String(kalGy) +"\n" + String(yaw)+"\n" +String(T)+"\n"+String(leftBtn.state())+"\n"+String(rightBtn.state())+"\n"+String(trackBtn.state())+"\n"  );
+ delay(10);
+  
   webSocket.loop();
   WiFiClient client = server.available();
-    if (!client)  {  return;  }
- 
-    client.flush();
-    client.print( header );
-    client.print( html_1 ); 
-    Serial.println("New page served");
- 
-    delay(5);
-  
+  if (!client)  {  return;  }
+
+  client.flush();
+  client.print( header );
+  client.print( html_1 ); 
+  Serial.println("New page served");
+
+//  delay(5);
+      
   
 }
 
@@ -257,6 +274,7 @@ void webSocketEvent(byte num, WStype_t type, uint8_t * payload, size_t length)
 
 //configure MPU6050
 void MPU6050_Init(){
+  
   delay(150);
   I2C_Write(MPU6050SlaveAddress, MPU6050_REGISTER_SMPLRT_DIV, 0x07);
   I2C_Write(MPU6050SlaveAddress, MPU6050_REGISTER_PWR_MGMT_1, 0x01);

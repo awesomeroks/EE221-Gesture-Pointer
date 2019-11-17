@@ -24,23 +24,23 @@ print(prevWidth, prevHeight)
 def on_message(ws, message):
     global prevHeight, prevWidth
     x = message.split('\n')
-
-    toWidth = int(xlen) - int(float(x[5]))
-    toHeight = int(ylen) + int(float(x[1]))
+    print(float(x[5]))
+    toWidth =  int(float(x[5])%1366)*float(x[5])/abs(float(x[5]))
+    toHeight = int(ylen) + int(float(x[1])) 
     diff = abs(prevWidth - toWidth)
     diff2 = abs(prevHeight - toHeight)
-    print(toWidth, toHeight, diff, diff2)
-    
-    # if(not(diff<30 and diff2 < 30)):
-    autopy.mouse.move(toWidth, toHeight)
-    k = (toWidth - prevWidth)/steps
-    p = (toHeight - prevHeight)/steps
-    # for i in range(steps):
-    #     calcWidth = int(k*i + prevWidth)
-    #     calcHeight = int(p*i + prevHeight)
-    #     autopy.mouse.move(calcWidth,calcHeight)
-    prevWidth = toWidth
-    prevHeight = toHeight
+    # print("x",toWidth, "y" ,toHeight, diff, diff2) k
+    # if(x[7] == '1'):
+    #     autopy.mouse.toggle(autopy.mouse.Button.LEFT, True)
+    # else:
+    #     autopy.mouse.toggle(autopy.mouse.Button.LEFT, False)
+    # if(x[8] == '1'):
+    #     autopy.mouse.toggle(autopy.mouse.Button.RIGHT, True)
+    # else:
+    #     autopy.mouse.toggle(autopy.mouse.Button.RIGHT, False)
+
+    if(not(diff<5)):
+        autopy.mouse.move(toWidth, toHeight)
     
 
 
@@ -48,6 +48,7 @@ for i in range(100):
     sleep(10/1000)
     autopy.mouse.move(i, i)
 autopy.mouse.move(prevWidth, prevHeight)
+
 
 def on_error(ws, error):
     print(error)
@@ -59,6 +60,7 @@ def on_close(ws):
 
 def on_open(ws):
     print('Started')
+
 
     def run(*args):
         for i in range(3):
