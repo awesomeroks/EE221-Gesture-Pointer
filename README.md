@@ -9,4 +9,4 @@ Check out a video here:
 
 
 
-[![Watch the video](https://img.youtube.com/vi/T-GQc7L0EPPWk/maxresdefault.jpg)](https://www.youtube.com/watch?v=GQc7L0EPPWk)
+[![Watch the video](http://i3.ytimg.com/vi/GQc7L0EPPWk/maxresdefault.jpg)](https://www.youtube.com/watch?v=GQc7L0EPPWk)
